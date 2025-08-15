@@ -150,8 +150,18 @@ bool validate_block_chain(Block *genesis_block) {
   Block *slow = genesis_block;
   Block *fast = genesis_block->next_block;
 
+  // Edge case (1 block)
+  if (genesis_block->next_block == NULL) {
+    // Sicne it's the genesis block there's no way to manipulate it
+    return true;
+  }
+  // Edge case2 : (2 blocks)
+  if (fast && fast->next_block == NULL) {
+    return strcmp(slow->current_hash, fast->prev_hash) == 0;
+  }
+
   while (slow->next_block->next_block != NULL && fast->next_block != NULL) {
-    if (strcmp(slow->current_hash, fast->current_hash) != 0) {
+    if (strcmp(slow->current_hash, fast->prev_hash) != 0) {
       printf(stderr, "Chain Error : Hashes don't match ");
       return false;
     }
