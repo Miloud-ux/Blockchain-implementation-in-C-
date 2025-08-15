@@ -165,6 +165,8 @@ bool validate_block_chain(Block *genesis_block) {
       printf(stderr, "Chain Error : Hashes don't match ");
       return false;
     }
+    slow = slow->next_block;
+    fast = fast->next_block;
   }
   return true;
 }
