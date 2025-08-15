@@ -23,6 +23,9 @@ typedef struct Block {
   struct Block *next_block;
 } Block;
 
+void spinning_loading();
+void spinning_loading_util(char spin_char);
+
 bool validate_block(Block **genesis_block);
 bool validate_block_components(Block **block);
 bool validate_block_chain(Block *block);
@@ -116,29 +119,17 @@ void create_new_block_wrapper(Block **genesis_block) {
       create_new_block(genesis_block, data);
       if (!validate_block(genesis_block)) {
         printf("New block invalid !");
-        // Add a loading bar (GNU style)
-        for (int i = 0; i < 3; i++) {
-          printf("\\");
-          fflush(stdout);
-          usleep(50000);
-          printf("|");
-          fflush(stdout);
-          usleep(50000);
-          printf("/");
-          fflush(stdout);
-          usleep(50000);
-          printf("-");
-          fflush(stdout);
-          usleep(50000);
-        }
-        delete_invalid_block(genesis_block);
-        printf("Done");
+        // Add an ASCII spinner
       }
-    } else {
-      printf("Unknown character");
-      return;
+      delete_invalid_block(genesis_block);
+      printf("Done");
     }
   }
+  else {
+    printf("Unknown character");
+    return;
+  }
+}
 }
 int main() {
   // Create the first block (Genesis block)
@@ -278,4 +269,17 @@ void delete_invalid_block(Block **genesis_block) {
     temp_block = temp_block->next_block;
   }
   temp_block->next_block = NULL;
+}
+
+void spinning_loading() {
+  const char *theme_1 = "⣾⣽⣻⢿⡿⣟⣯⣷";
+  // const char* theme_2 = ['◴','◷','◶','◵'];
+  for (int i = 0; i < strlen(theme_1); i++) {
+    spinning_loading_util(theme_1[i]);
+  }
+}
+void spinning_loading_util(char spin_char) {
+  printf("%c\r", spin_char);
+  fflush(stdout);
+  usleep(40000);
 }
