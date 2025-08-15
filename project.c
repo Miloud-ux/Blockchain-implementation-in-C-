@@ -7,6 +7,7 @@
 #include <string.h>
 #include <strings.h>
 #include <time.h>
+#include <unistd.h>
 #define MAX_SIZE 1024
 #define MAX_HASH_SIZE                                                          \
   32 // MAX chars for SHA-256 is MAX_HASH_SIZE it's the size of the digest
@@ -21,6 +22,11 @@ typedef struct Block {
   char prev_hash[MAX_HASH_SIZE];
   struct Block *next_block;
 } Block;
+
+bool validate_block(Block **genesis_block);
+bool validate_block_components(Block **block);
+bool validate_block_chain(Block *block);
+void delete_invalid_block(Block **genesis_block);
 
 void set_time_stamps(Block *myblock) {
   time_t now = time(NULL);
@@ -108,17 +114,32 @@ void create_new_block_wrapper(Block **genesis_block) {
       char data[MAX_SIZE];
       fgets(data, MAX_SIZE, stdin);
       create_new_block(genesis_block, data);
+      if (!validate_block(genesis_block)) {
+        printf("New block invalid !");
+        // Add a loading bar (GNU style)
+        for (int i = 0; i < 3; i++) {
+          printf("\\");
+          fflush(stdout);
+          usleep(50000);
+          printf("|");
+          fflush(stdout);
+          usleep(50000);
+          printf("/");
+          fflush(stdout);
+          usleep(50000);
+          printf("-");
+          fflush(stdout);
+          usleep(50000);
+        }
+        delete_invalid_block(genesis_block);
+        printf("Done");
+      }
     } else {
       printf("Unknown character");
       return;
     }
   }
 }
-
-bool valiate_block(Block *block);
-bool validate_block_components(Block **block);
-bool validate_block_chain(Block *block);
-
 int main() {
   // Create the first block (Genesis block)
   Block *genesis_block;
@@ -217,7 +238,7 @@ bool validate_block_components(Block **genesis_block) {
   return true;
 }
 
-bool validate_block(Block *block) {
+bool validate_block(Block **genesis_block) {
 
   // == validate_block_components ==
   // "current hash" of current block = "current hash saved in the struct"
@@ -234,4 +255,27 @@ bool validate_block(Block *block) {
   // == note ==
   // we don't need to track the  index of the block to be deleted since we are
   // checking everytime a block gets added so obv it's always the last block.
+
+  Block *latest_block = *genesis_block;
+  while (latest_block->next_block != NULL) {
+    latest_block = latest_block->next_block;
+  }
+
+  if (!validate_block_components(&latest_block)) {
+    return false;
+  } else if (!validate_block_chain(*genesis_block)) {
+    return false;
+  }
+  printf("Log : >>Valid block \n");
+  return true;
+}
+
+void delete_invalid_block(Block **genesis_block) {
+  // 1. Loop through the linked list till the block before the end
+  // 2. Set the next_block == NULL
+  Block *temp_block = *genesis_block;
+  while (temp_block->next_block->next_block != NULL) {
+    temp_block = temp_block->next_block;
+  }
+  temp_block->next_block = NULL;
 }
