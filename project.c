@@ -116,7 +116,7 @@ void create_new_block_wrapper(Block **genesis_block) {
 }
 
 bool valiate_block(Block *block);
-bool validate_block_components(Block *block, int *height);
+bool validate_block_components(Block **block);
 bool validate_block_chain(Block *block);
 
 int main() {
@@ -169,7 +169,7 @@ bool validate_block_chain(Block *genesis_block) {
   return true;
 }
 
-bool validate_block_components(Block *block, int *height) {
+bool validate_block_components(Block **genesis_block) {
   // Validate the hash of the current block
   // 1. Recompute the hash
   // 2. Compare with the provided hash
@@ -179,6 +179,40 @@ bool validate_block_components(Block *block, int *height) {
   // then compare it to the string var :
   // - If they match : correct hash
   // - Else : modified hash (fake)
+
+  if (genesis_block == NULL) {
+    return false;
+  }
+
+  // traverse to the last block (last added block)
+  Block *temp = *genesis_block;
+  while (temp->next_block != NULL) {
+    temp = temp->next_block;
+  }
+
+  char temp_hash[MAX_HASH_SIZE] = {0};
+  strcpy(temp_hash, temp->current_hash);
+
+  hash_func(temp);
+  if (strcmp(temp_hash, temp->current_hash) != 0) {
+    printf(stderr,
+           "Component Error: provided hash doesn't match computed hash");
+    return false;
+  }
+
+  // Step2 :  compare the height of the blocks
+  int temp_index = temp->index;
+  temp = *genesis_block;
+  while (temp->next_block->next_block) {
+    temp = temp->next_block;
+  }
+
+  if (temp_index <= temp->index) {
+    printf(stderr, "Component Error : Height of the current block doesn't  ");
+    return false;
+  }
+
+  return true;
 }
 
 bool validate_block(Block *block) {
