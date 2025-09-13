@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <ctype.h>
 #include <openssl/sha.h>
 #include <stdbool.h>
@@ -9,11 +10,10 @@
 #include <time.h>
 #include <unistd.h>
 #define MAX_SIZE 1024
-#define MAX_HASH_SIZE                                                          \
-  32 // MAX chars for SHA-256 is MAX_HASH_SIZE it's the size of the digest
-     // (output)
-#define MAX_CONCATINATED_SIZE 2000
+#define MAX_HASH_SIZE 65
 
+// MAX chars for SHA-256 is MAX_HASH_SIZE it's the size of the digest (output)
+#define MAX_CONCATINATED_SIZE 2000
 typedef struct Block {
   int index; // the height of the block
   char timestamps[20];
@@ -23,6 +23,8 @@ typedef struct Block {
   struct Block *next_block;
 } Block;
 
+void free_chain(Block **genesis_block);
+void test_invalid_chain(Block *genesis_block); // for debugging
 void spinning_loading();
 void spinning_loading_util(char spin_char);
 
@@ -123,13 +125,11 @@ void create_new_block_wrapper(Block **genesis_block) {
       }
       delete_invalid_block(genesis_block);
       printf("Done");
+    } else {
+      fprintf(stderr, "Syntax Error :Unknown character");
+      return;
     }
   }
-  else {
-    printf("Unknown character");
-    return;
-  }
-}
 }
 int main() {
   // Create the first block (Genesis block)
@@ -147,7 +147,11 @@ int main() {
   hash_func(genesis_block);
 
   // Interactive block creation:
-  create_new_block_wrapper(&genesis_block);
+  test_invalid_chain(genesis_block);
+  free_chain(&genesis_block);
+  // create_new_block_wrapper(&genesis_block);
+
+  // free the whole chain
 
   return 0;
 }
@@ -156,7 +160,7 @@ bool validate_block_chain(Block *genesis_block) {
   // Traverse the linked list and compare each hash with the one after
   // We use "fast and slow pointers"
   if (genesis_block == NULL) {
-    printf(stderr, "Chain Error : Genesis block doesn't exist or is NULL");
+    fprintf(stderr, "Chain Error : Genesis block doesn't exist or is NULL");
     return false;
   }
   Block *slow = genesis_block;
@@ -174,7 +178,7 @@ bool validate_block_chain(Block *genesis_block) {
 
   while (slow->next_block->next_block != NULL && fast->next_block != NULL) {
     if (strcmp(slow->current_hash, fast->prev_hash) != 0) {
-      printf(stderr, "Chain Error : Hashes don't match ");
+      fprintf(stderr, "Chain Error : Hashes don't match ");
       return false;
     }
     slow = slow->next_block;
@@ -209,8 +213,8 @@ bool validate_block_components(Block **genesis_block) {
 
   hash_func(temp);
   if (strcmp(temp_hash, temp->current_hash) != 0) {
-    printf(stderr,
-           "Component Error: provided hash doesn't match computed hash");
+    fprintf(stderr,
+            "Component Error: provided hash doesn't match computed hash");
     return false;
   }
 
@@ -222,7 +226,7 @@ bool validate_block_components(Block **genesis_block) {
   }
 
   if (temp_index <= temp->index) {
-    printf(stderr, "Component Error : Height of the current block doesn't  ");
+    fprintf(stderr, "Component Error : Height of the current block doesn't  ");
     return false;
   }
 
@@ -264,8 +268,20 @@ bool validate_block(Block **genesis_block) {
 void delete_invalid_block(Block **genesis_block) {
   // 1. Loop through the linked list till the block before the end
   // 2. Set the next_block == NULL
+  if (genesis_block == NULL || (*genesis_block)->next_block == NULL) {
+    // nothing to delete here
+    return;
+  }
+
+  // Case 2 : two blocks only
   Block *temp_block = *genesis_block;
-  while (temp_block->next_block->next_block != NULL) {
+  if (temp_block->next_block->next_block == NULL) {
+    free(temp_block);
+    temp_block->next_block = NULL;
+    return;
+  }
+
+  if (temp_block->next_block->next_block == NULL) {
     temp_block = temp_block->next_block;
   }
   temp_block->next_block = NULL;
@@ -282,4 +298,32 @@ void spinning_loading_util(char spin_char) {
   printf("%c\r", spin_char);
   fflush(stdout);
   usleep(40000);
+}
+void test_invalid_chain(Block *genesis_block) {
+  Block *chain = genesis_block;
+  create_new_block(&chain, "A");
+  create_new_block(&chain, "B");
+
+  // Test 1: Corrupt hash
+  strcpy(chain->next_block->current_hash, "0000000000");
+  assert(validate_block(&chain) == false);
+
+  // Test 2: Break link
+  strcpy(chain->next_block->prev_hash, "broken_link");
+  assert(validate_block_chain(chain) == false);
+}
+
+void free_chain(Block **genesis_block) {
+  if (*genesis_block == NULL) {
+    printf("Chain Error : Genesis block doesn't exist or is NULL");
+    return;
+  }
+  Block *current = *genesis_block;
+  Block *temp;
+  while (current != NULL) {
+    temp = current;
+    current = current->next_block;
+    free(temp);
+  }
+  printf("Chain freed");
 }
