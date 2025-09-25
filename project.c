@@ -12,7 +12,6 @@
 #define MAX_SIZE 1024
 #define MAX_HASH_SIZE 65
 
-// MAX chars for SHA-256 is MAX_HASH_SIZE it's the size of the digest (output)
 #define MAX_CONCATINATED_SIZE 2000
 typedef struct Block {
   int index; // the height of the block
@@ -50,12 +49,12 @@ void hash_func(Block *myblock) {
     exit(1);
   }
   // Hashing
-  unsigned char digest[MAX_HASH_SIZE];
+  unsigned char digest[SHA256_DIGEST_LENGTH];
   SHA256((unsigned char *)con_data, strlen(con_data), digest);
 
   // Convert the raw hash into hexa string
   char hex[65];
-  for (size_t i = 0; i < MAX_HASH_SIZE; i++) {
+  for (size_t i = 0; i < SHA256_DIGEST_LENGTH; i++) {
     sprintf(hex + (i * 2), "%02x", digest[i]);
   }
   hex[64] = '\0';
@@ -97,12 +96,12 @@ void create_new_block(Block **genesis_block, char data[]) {
   }
   init_new_block(new_block); // to avoid garbage values
   strcpy(new_block->data, data);
-  hash_func(new_block);
   new_block->index = index + 1;
 
   // now link the blocks and fill the "prev hash" field
-  temp->next_block = new_block;
   strcpy(new_block->prev_hash, temp->current_hash);
+  hash_func(new_block);
+  temp->next_block = new_block;
 }
 
 void create_new_block_wrapper(Block **genesis_block) {
