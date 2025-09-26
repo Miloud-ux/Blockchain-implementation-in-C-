@@ -155,82 +155,84 @@ int main() {
   return 0;
 }
 
-bool validate_block_chain(Block *genesis_block) {
-  // Traverse the linked list and compare each hash with the one after
-  // We use "fast and slow pointers"
-  if (genesis_block == NULL) {
-    fprintf(stderr, "Chain Error : Genesis block doesn't exist or is NULL");
-    return false;
-  }
-  Block *slow = genesis_block;
-  Block *fast = genesis_block->next_block;
+// ==  TODO: DELETE THIS FUNCTION AND REWRITE THE OTHER TWOS
+// bool validate_block_chain(Block *genesis_block) {
+//   // Traverse the linked list and compare each hash with the one after
+//   // We use "fast and slow pointers"
+//   if (genesis_block == NULL) {
+//     fprintf(stderr, "Chain Error : Genesis block doesn't exist or is NULL");
+//     return false;
+//   }
+//   Block *slow = genesis_block;
+//   Block *fast = genesis_block->next_block;
+//
+//   // Edge case (1 block)
+//   if (genesis_block->next_block == NULL) {
+//     // Sicne it's the genesis block there's no way to manipulate it
+//     return true;
+//   }
+//   // Edge case2 : (2 blocks)
+//   if (fast && fast->next_block == NULL) {
+//     return strcmp(slow->current_hash, fast->prev_hash) == 0;
+//   }
+//
+//   while (slow->next_block->next_block != NULL && fast->next_block != NULL) {
+//     if (strcmp(slow->current_hash, fast->prev_hash) != 0) {
+//       fprintf(stderr, "Chain Error : Hashes don't match ");
+//       return false;
+//     }
+//     slow = slow->next_block;
+//     fast = fast->next_block;
+//   }
+//   return true;
+// }
 
-  // Edge case (1 block)
-  if (genesis_block->next_block == NULL) {
-    // Sicne it's the genesis block there's no way to manipulate it
-    return true;
-  }
-  // Edge case2 : (2 blocks)
-  if (fast && fast->next_block == NULL) {
-    return strcmp(slow->current_hash, fast->prev_hash) == 0;
-  }
-
-  while (slow->next_block->next_block != NULL && fast->next_block != NULL) {
-    if (strcmp(slow->current_hash, fast->prev_hash) != 0) {
-      fprintf(stderr, "Chain Error : Hashes don't match ");
-      return false;
-    }
-    slow = slow->next_block;
-    fast = fast->next_block;
-  }
-  return true;
-}
-
-bool validate_block_components(Block **genesis_block) {
-  // Validate the hash of the current block
-  // 1. Recompute the hash
-  // 2. Compare with the provided hash
-  // note: instead of creating a new function to calculate the hash and somehow
-  // "return" the string we can simply save the current hash in a seperate
-  // string variable and then write the freshly computed hash into the block and
-  // then compare it to the string var :
-  // - If they match : correct hash
-  // - Else : modified hash (fake)
-
-  if (genesis_block == NULL) {
-    return false;
-  }
-
-  // traverse to the last block (last added block)
-  Block *temp = *genesis_block;
-  while (temp->next_block != NULL) {
-    temp = temp->next_block;
-  }
-
-  char temp_hash[MAX_HASH_SIZE] = {0};
-  strcpy(temp_hash, temp->current_hash);
-
-  hash_func(temp);
-  if (strcmp(temp_hash, temp->current_hash) != 0) {
-    fprintf(stderr,
-            "Component Error: provided hash doesn't match computed hash");
-    return false;
-  }
-
-  // Step2 :  compare the height of the blocks
-  int temp_index = temp->index;
-  temp = *genesis_block;
-  while (temp->next_block->next_block) {
-    temp = temp->next_block;
-  }
-
-  if (temp_index <= temp->index) {
-    fprintf(stderr, "Component Error : Height of the current block doesn't  ");
-    return false;
-  }
-
-  return true;
-}
+// bool validate_block_components(Block **genesis_block) {
+//   // Validate the hash of the current block
+//   // 1. Recompute the hash
+//   // 2. Compare with the provided hash
+//   // note: instead of creating a new function to calculate the hash and
+//   somehow
+//   // "return" the string we can simply save the current hash in a seperate
+//   // string variable and then write the freshly computed hash into the block
+//   and
+//   // then compare it to the string var :
+//   // - If they match : correct hash
+//   // - Else : modified hash (fake)
+//
+//   if (genesis_block == NULL || *genesis_block == NULL) {
+//     fprintf(stderr, "Component Error: Genesis block is NULL\n");
+//     return false;
+//   }
+//
+//   Block *last_block = *genesis_block;
+//   Block *second_to_last = NULL;
+//
+//   while (last_block->next_block != NULL) {
+//     second_to_last = last_block;
+//     last_block = last_block->next_block;
+//   }
+//
+//   char temp_hash[MAX_HASH_SIZE] = {0};
+//   strcpy(temp_hash, last_block->current_hash);
+//
+//   hash_func(last_block);
+//   if (strcmp(temp_hash, last_block->current_hash) != 0) {
+//     fprintf(stderr,
+//             "Component Error: provided hash doesn't match computed hash");
+//     return false;
+//   }
+//
+//   // Step2 :  compare the height of the blocks
+//   if (second_to_last != NULL) {
+//     if (last_block->index != second_to_last->index + 1) {
+//       fprintf(stderr, "Component Error : Block height is not continuous");
+//       return false;
+//     }
+//   }
+//
+//   return true;
+// }
 
 bool validate_block(Block **genesis_block) {
 
