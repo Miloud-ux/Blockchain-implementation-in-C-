@@ -27,9 +27,7 @@ void test_invalid_chain(Block *genesis_block); // for debugging
 void spinning_loading();
 void spinning_loading_util(char spin_char);
 
-bool validate_block(Block **genesis_block);
-bool validate_block_components(Block **block);
-bool validate_block_chain(Block *block);
+bool validate_block_chain(Block **block);
 void delete_invalid_block(Block **genesis_block);
 
 void set_time_stamps(Block *myblock) {
@@ -114,11 +112,11 @@ void create_new_block_wrapper(Block **genesis_block) {
       printf("Have a good day");
       return;
     } else if (tolower(answer) == 'y') {
-      printf("Enter the data : ");
+      printf("Enter the datj : ");
       char data[MAX_SIZE];
       fgets(data, MAX_SIZE, stdin);
       create_new_block(genesis_block, data);
-      if (!validate_block(genesis_block)) {
+      if (!validate_block_chain(genesis_block)) {
         printf("New block invalid !");
         // Add an ASCII spinner
       }
@@ -155,114 +153,41 @@ int main() {
   return 0;
 }
 
-// ==  TODO: DELETE THIS FUNCTION AND REWRITE THE OTHER TWOS
-// bool validate_block_chain(Block *genesis_block) {
-//   // Traverse the linked list and compare each hash with the one after
-//   // We use "fast and slow pointers"
-//   if (genesis_block == NULL) {
-//     fprintf(stderr, "Chain Error : Genesis block doesn't exist or is NULL");
-//     return false;
-//   }
-//   Block *slow = genesis_block;
-//   Block *fast = genesis_block->next_block;
-//
-//   // Edge case (1 block)
-//   if (genesis_block->next_block == NULL) {
-//     // Sicne it's the genesis block there's no way to manipulate it
-//     return true;
-//   }
-//   // Edge case2 : (2 blocks)
-//   if (fast && fast->next_block == NULL) {
-//     return strcmp(slow->current_hash, fast->prev_hash) == 0;
-//   }
-//
-//   while (slow->next_block->next_block != NULL && fast->next_block != NULL) {
-//     if (strcmp(slow->current_hash, fast->prev_hash) != 0) {
-//       fprintf(stderr, "Chain Error : Hashes don't match ");
-//       return false;
-//     }
-//     slow = slow->next_block;
-//     fast = fast->next_block;
-//   }
-//   return true;
-// }
+bool validate_block_chain(Block **genesis_block) {
+  /* 1. Recompute the hash.
+   *  2. Check : curr -> hash = prev -> hash
+   *  3. Check : curr -> index = prev -> index + 1
+   */
 
-// bool validate_block_components(Block **genesis_block) {
-//   // Validate the hash of the current block
-//   // 1. Recompute the hash
-//   // 2. Compare with the provided hash
-//   // note: instead of creating a new function to calculate the hash and
-//   somehow
-//   // "return" the string we can simply save the current hash in a seperate
-//   // string variable and then write the freshly computed hash into the block
-//   and
-//   // then compare it to the string var :
-//   // - If they match : correct hash
-//   // - Else : modified hash (fake)
-//
-//   if (genesis_block == NULL || *genesis_block == NULL) {
-//     fprintf(stderr, "Component Error: Genesis block is NULL\n");
-//     return false;
-//   }
-//
-//   Block *last_block = *genesis_block;
-//   Block *second_to_last = NULL;
-//
-//   while (last_block->next_block != NULL) {
-//     second_to_last = last_block;
-//     last_block = last_block->next_block;
-//   }
-//
-//   char temp_hash[MAX_HASH_SIZE] = {0};
-//   strcpy(temp_hash, last_block->current_hash);
-//
-//   hash_func(last_block);
-//   if (strcmp(temp_hash, last_block->current_hash) != 0) {
-//     fprintf(stderr,
-//             "Component Error: provided hash doesn't match computed hash");
-//     return false;
-//   }
-//
-//   // Step2 :  compare the height of the blocks
-//   if (second_to_last != NULL) {
-//     if (last_block->index != second_to_last->index + 1) {
-//       fprintf(stderr, "Component Error : Block height is not continuous");
-//       return false;
-//     }
-//   }
-//
-//   return true;
-// }
-
-bool validate_block(Block **genesis_block) {
-
-  // == validate_block_components ==
-  // "current hash" of current block = "current hash saved in the struct"
-  // (compare strings)
-  //  "index" of current block = "index" of next block - 1
-
-  // == validate_block_chain ==
-  // "current hash" of current block = "prev hash" of the next block
-
-  // == Log errors ==
-  // To log errors we are using pass by reference to detect where the erros is
-  // instead of a general error message
-
-  // == note ==
-  // we don't need to track the  index of the block to be deleted since we are
-  // checking everytime a block gets added so obv it's always the last block.
-
-  Block *latest_block = *genesis_block;
-  while (latest_block->next_block != NULL) {
-    latest_block = latest_block->next_block;
-  }
-
-  if (!validate_block_components(&latest_block)) {
-    return false;
-  } else if (!validate_block_chain(*genesis_block)) {
+  if (*genesis_block == NULL) {
     return false;
   }
-  printf("Log : >>Valid block \n");
+
+  Block *curr = *genesis_block;
+  char hash_buffer[MAX_HASH_SIZE];
+
+  while (curr->next_block) {
+    strncpy(hash_buffer, curr->current_hash, MAX_HASH_SIZE);
+    hash_func(curr);
+
+    if (strcmp(hash_buffer, curr->current_hash) != 0) {
+      fprintf(stderr, "Block Error : Block hash mismatch");
+      return false;
+    }
+
+    if (curr->index + 1 != curr->next_block->index) {
+      fprintf(stderr, "Block Error : Block height not continuous");
+      return false;
+    }
+
+    if (strcmp(curr->current_hash, curr->next_block->prev_hash) != 0) {
+      fprintf(stderr, "Block Error : Linking hash mismatch");
+      return false;
+    }
+
+    curr = curr->next_block;
+  }
+
   return true;
 }
 
@@ -274,24 +199,19 @@ void delete_invalid_block(Block **genesis_block) {
     return;
   }
 
-  // Case 2 : two blocks only
-  Block *temp_block = *genesis_block;
-  if (temp_block->next_block->next_block == NULL) {
-    free(temp_block);
-    temp_block->next_block = NULL;
-    return;
+  // Case 2 : More than two blocks
+  Block *temp = *genesis_block;
+  while (temp->next_block->next_block != NULL) {
+    temp = temp->next_block;
   }
-
-  if (temp_block->next_block->next_block == NULL) {
-    temp_block = temp_block->next_block;
-  }
-  temp_block->next_block = NULL;
+  free(temp->next_block);
+  temp->next_block = NULL;
 }
 
 void spinning_loading() {
   const char *theme_1 = "⣾⣽⣻⢿⡿⣟⣯⣷";
   // const char* theme_2 = ['◴','◷','◶','◵'];
-  for (int i = 0; i < strlen(theme_1); i++) {
+  for (size_t i = 0; i < strlen(theme_1); i++) {
     spinning_loading_util(theme_1[i]);
   }
 }
@@ -307,11 +227,11 @@ void test_invalid_chain(Block *genesis_block) {
 
   // Test 1: Corrupt hash
   strcpy(chain->next_block->current_hash, "0000000000");
-  assert(validate_block(&chain) == false);
+  assert(validate_block_chain(&chain) == false);
 
   // Test 2: Break link
   strcpy(chain->next_block->prev_hash, "broken_link");
-  assert(validate_block_chain(chain) == false);
+  assert(validate_block_chain(&chain) == false);
 }
 
 void free_chain(Block **genesis_block) {
