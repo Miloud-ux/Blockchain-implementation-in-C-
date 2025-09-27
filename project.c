@@ -10,7 +10,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#define MINNING_DIFFUCULTY 1
+#define MINNING_DIFFUCULTY 6
 #define MAX_SIZE 1024
 #define MAX_HASH_SIZE 65
 #define MAX_CONCATINATED_SIZE 2000
@@ -184,24 +184,24 @@ bool validate_block_chain(Block **genesis_block) {
     hash_func(curr);
 
     if (strcmp(hash_buffer, curr->current_hash) != 0) {
-      fprintf(stderr, "Block Error : Block hash mismatch");
+      fprintf(stderr, "Block Error : Block hash mismatch\n");
       return false;
     }
 
     if (curr->index + 1 != curr->next_block->index) {
-      fprintf(stderr, "Block Error : Block height not continuous");
+      fprintf(stderr, "Block Error : Block height not continuous\n");
       return false;
     }
 
     if (strcmp(curr->current_hash, curr->next_block->prev_hash) != 0) {
-      fprintf(stderr, "Block Error : Linking hash mismatch");
+      fprintf(stderr, "Block Error : Linking hash mismatch\n");
       return false;
     }
 
     for (int i = 0; i < MINNING_DIFFUCULTY; i++) {
       if (curr->current_hash[i] != '0') {
         fprintf(stderr,
-                "Block Error : Not matching the correct PoW difficulty");
+                "Block Error : Not matching the correct PoW difficulty\n");
         return false;
       }
     }
@@ -294,7 +294,7 @@ void print_chain(Block *genesis_block) {
   Block *curr = genesis_block;
   while (curr != NULL) {
     // Use your spinning loader
-    printf("  Loading block %d ", curr->index);
+    printf("    Loading block %d ", curr->index);
     spinning_loading();
     printf(" ✓\n");
 
@@ -349,21 +349,21 @@ void mine_block(Block *block) {
     }
 
     if (is_valid) {
-      printf("Block mined !: None = %d", block->nonce);
-      printf("Final hash : %s", block->current_hash);
+      printf("\nBlock mined !: None = %d\n", block->nonce);
+      printf("Final hash : %s\n", block->current_hash);
       break;
     }
 
     block->nonce++;
   }
 }
+
 void spinning_loading_minning() {
-  // const char *theme_1 = "⣾⣽⣻⢿⡿⣟⣯⣷";
-  const char *theme_1 = "|/-\\|/-\\";
-  for (int cycle = 0; cycle < 2; cycle++) { // 3 rotations
-    for (unsigned short int i = 0; i < 4;
-         i++) { // experimenting with different data types  :)
-      spinning_loading_util(theme_1[i]);
-    }
-  }
+  static int i = 0; // persists between calls
+  const char *theme = "|/-\\";
+
+  printf("\r%c Mining... ", theme[i]);
+  fflush(stdout);
+
+  i = (i + 1) % 4; // increment and wrap around (0 → 1 → 2 → 3 → 0...)
 }
