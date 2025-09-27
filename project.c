@@ -22,11 +22,16 @@ typedef struct Block {
   struct Block *next_block;
 } Block;
 
-void free_chain(Block **genesis_block);
-void test_invalid_chain(Block *genesis_block); // for debugging
+// Output :
+void print_chain(Block *genesis_block);
+
+// Extra
 void spinning_loading();
 void spinning_loading_util(char spin_char);
 
+// Essential
+void free_chain(Block **genesis_block);
+void test_invalid_chain(Block *genesis_block); // for debugging
 bool validate_block_chain(Block **block);
 void delete_invalid_block(Block **genesis_block);
 
@@ -209,21 +214,25 @@ void delete_invalid_block(Block **genesis_block) {
 }
 
 void spinning_loading() {
-  const char *theme_1 = "⣾⣽⣻⢿⡿⣟⣯⣷";
-  // const char* theme_2 = ['◴','◷','◶','◵'];
-  for (size_t i = 0; i < strlen(theme_1); i++) {
-    spinning_loading_util(theme_1[i]);
+  // const char *theme_1 = "⣾⣽⣻⢿⡿⣟⣯⣷";
+  const char *theme_1 = "|/-\\|/-\\";
+  for (int cycle = 0; cycle < 2; cycle++) { // 3 rotations
+    for (unsigned short int i = 0; i < 4;
+         i++) { // experimenting with different data types  :)
+      spinning_loading_util(theme_1[i]);
+    }
   }
 }
 void spinning_loading_util(char spin_char) {
-  printf("%c\r", spin_char);
+  printf("\r%c ", spin_char);
   fflush(stdout);
-  usleep(40000);
+  usleep(200000);
 }
 void test_invalid_chain(Block *genesis_block) {
   Block *chain = genesis_block;
   create_new_block(&chain, "A");
   create_new_block(&chain, "B");
+  print_chain(genesis_block);
 
   // Test 1: Corrupt hash
   strcpy(chain->next_block->current_hash, "0000000000");
@@ -247,4 +256,47 @@ void free_chain(Block **genesis_block) {
     free(temp);
   }
   printf("Chain freed");
+}
+
+void print_chain(Block *genesis_block) {
+  if (!genesis_block) {
+    printf("No blockchain to display!\n");
+    return;
+  }
+
+  printf("\n BLOCKCHAIN VISUALIZATION \n");
+  printf("================================\n\n");
+
+  Block *curr = genesis_block;
+  while (curr != NULL) {
+    // Use your spinning loader
+    printf("  Loading block %d ", curr->index);
+    spinning_loading();
+    printf(" ✓\n");
+
+    // Print block info
+    if (curr->index == 0) {
+      printf(" -------- GENESIS BLOCK --------\n");
+    } else {
+      printf(" -------- Block %d --------\n", curr->index);
+    }
+
+    printf("Timestamp : %s\n", curr->timestamps);
+    printf("Data      : %s\n", curr->data);
+    printf("Prev Hash : %.16s...\n", curr->prev_hash);
+    printf("Hash      : %.16s...\n", curr->current_hash);
+    printf("------------------------------\n");
+
+    // Connection arrow to next block (if not last)
+    if (curr->next_block != NULL) {
+      printf("              |\n");
+      printf("              ↓\n");
+      usleep(300000); // 0.3 seconds pause
+    }
+
+    printf("\n");
+    curr = curr->next_block;
+  }
+
+  printf("End of blockchain!\n\n");
 }
