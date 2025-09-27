@@ -9,27 +9,34 @@
 #include <strings.h>
 #include <time.h>
 #include <unistd.h>
+
+#define MINNING_DIFFUCULTY 1
 #define MAX_SIZE 1024
 #define MAX_HASH_SIZE 65
-
 #define MAX_CONCATINATED_SIZE 2000
+
 typedef struct Block {
   int index; // the height of the block
   char timestamps[20];
   char data[MAX_SIZE];
   char current_hash[MAX_HASH_SIZE];
   char prev_hash[MAX_HASH_SIZE];
+  int nonce;
   struct Block *next_block;
 } Block;
 
+// Block mining
+void mine_block(Block *block);
+
 // Output :
 void print_chain(Block *genesis_block);
+void spinning_loading_minning();
 
 // Extra
 void spinning_loading();
 void spinning_loading_util(char spin_char);
 
-// Essential
+// Block structure
 void free_chain(Block **genesis_block);
 void test_invalid_chain(Block *genesis_block); // for debugging
 bool validate_block_chain(Block **block);
@@ -44,9 +51,9 @@ void set_time_stamps(Block *myblock) {
 void hash_func(Block *myblock) {
   // Concatinate all the fields in a single string
   char con_data[MAX_CONCATINATED_SIZE];
-  int char_written =
-      snprintf(con_data, sizeof(con_data), "%d%s%s%s", myblock->index,
-               myblock->timestamps, myblock->prev_hash, myblock->data);
+  int char_written = snprintf(
+      con_data, sizeof(con_data), "%d%s%s%s%d", myblock->index,
+      myblock->timestamps, myblock->prev_hash, myblock->data, myblock->nonce);
   if (char_written >= MAX_CONCATINATED_SIZE) {
     perror("Buffer overflow");
     exit(1);
@@ -103,7 +110,7 @@ void create_new_block(Block **genesis_block, char data[]) {
 
   // now link the blocks and fill the "prev hash" field
   strcpy(new_block->prev_hash, temp->current_hash);
-  hash_func(new_block);
+  mine_block(new_block);
   temp->next_block = new_block;
 }
 
@@ -162,6 +169,7 @@ bool validate_block_chain(Block **genesis_block) {
   /* 1. Recompute the hash.
    *  2. Check : curr -> hash = prev -> hash
    *  3. Check : curr -> index = prev -> index + 1
+   *  4. Verify the PoW.
    */
 
   if (*genesis_block == NULL) {
@@ -190,7 +198,23 @@ bool validate_block_chain(Block **genesis_block) {
       return false;
     }
 
+    for (int i = 0; i < MINNING_DIFFUCULTY; i++) {
+      if (curr->current_hash[i] != '0') {
+        fprintf(stderr,
+                "Block Error : Not matching the correct PoW difficulty");
+        return false;
+      }
+    }
+
     curr = curr->next_block;
+  }
+
+  // We still need to check for the latest block:
+  for (int i = 0; i < MINNING_DIFFUCULTY; i++) {
+    if (curr->current_hash[i] != '0') {
+      fprintf(stderr, "Block Error : Not matching the correct PoW difficulty");
+      return false;
+    }
   }
 
   return true;
@@ -299,4 +323,47 @@ void print_chain(Block *genesis_block) {
   }
 
   printf("End of blockchain!\n\n");
+}
+
+void mine_block(Block *block) {
+
+  block->nonce = 0;
+  printf("Mining Block : %d...\n", block->index);
+
+  while (true) {
+
+    hash_func(block);
+
+    bool is_valid = true;
+    for (int i = 0; i < MINNING_DIFFUCULTY; i++) {
+      if (block->current_hash[i] != '0') {
+        is_valid = false;
+        break;
+      }
+    }
+    spinning_loading_minning();
+
+    if (block->nonce % 10000 == 0) {
+      printf("Tried nonce %d -> hash : %.15s", block->nonce,
+             block->current_hash);
+    }
+
+    if (is_valid) {
+      printf("Block mined !: None = %d", block->nonce);
+      printf("Final hash : %s", block->current_hash);
+      break;
+    }
+
+    block->nonce++;
+  }
+}
+void spinning_loading_minning() {
+  // const char *theme_1 = "⣾⣽⣻⢿⡿⣟⣯⣷";
+  const char *theme_1 = "|/-\\|/-\\";
+  for (int cycle = 0; cycle < 2; cycle++) { // 3 rotations
+    for (unsigned short int i = 0; i < 4;
+         i++) { // experimenting with different data types  :)
+      spinning_loading_util(theme_1[i]);
+    }
+  }
 }
