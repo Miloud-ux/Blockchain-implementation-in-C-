@@ -10,23 +10,36 @@
 #include <time.h>
 #include <unistd.h>
 
-#define MINNING_DIFFUCULTY 6
+#define MINNING_DIFFUCULTY 4
 #define MAX_SIZE 1024
 #define MAX_HASH_SIZE 65
-#define MAX_CONCATINATED_SIZE 2000
+#define MAX_CONCATINATED_SIZE 10000
+#define MAX_USERNAME_SIZE 50
+#define MAX_TX 10 // maximum transactions
+
+typedef struct Transaction {
+  char sender[MAX_USERNAME_SIZE];
+  char receiver[MAX_USERNAME_SIZE];
+  int amount;
+} Transaction;
 
 typedef struct Block {
   int index; // the height of the block
   char timestamps[20];
-  char data[MAX_SIZE];
+  Transaction transactions[MAX_TX];
+  int tx_count; // count how many transactions are in this Block.
   char current_hash[MAX_HASH_SIZE];
   char prev_hash[MAX_HASH_SIZE];
   int nonce;
   struct Block *next_block;
 } Block;
 
+// Transactions
+void add_transaction(Block *block, char *from, char *to, int amount);
+
 // Block mining
 void mine_block(Block *block);
+void mine_latest_block(Block *block); // For easier testing
 
 // Output :
 void print_chain(Block *genesis_block);
@@ -49,15 +62,39 @@ void set_time_stamps(Block *myblock) {
 }
 
 void hash_func(Block *myblock) {
+  if (!myblock) {
+    return;
+  }
+
   // Concatinate all the fields in a single string
   char con_data[MAX_CONCATINATED_SIZE];
-  int char_written = snprintf(
-      con_data, sizeof(con_data), "%d%s%s%s%d", myblock->index,
-      myblock->timestamps, myblock->prev_hash, myblock->data, myblock->nonce);
+
+  int char_written =
+      snprintf(con_data, sizeof(con_data), "%d%s%s%d", myblock->index,
+               myblock->timestamps, myblock->prev_hash, myblock->nonce);
+
   if (char_written >= MAX_CONCATINATED_SIZE) {
     perror("Buffer overflow");
     exit(1);
   }
+
+  // Concatinate all the transactions to hash them
+  for (int i = 0; i < myblock->tx_count; i++) {
+    int remaining = MAX_CONCATINATED_SIZE - char_written;
+
+    int tx_written = snprintf(con_data + char_written, remaining, "%s%s%d",
+                              myblock->transactions[i].sender,
+                              myblock->transactions[i].receiver,
+                              myblock->transactions[i].amount);
+
+    if (tx_written >= remaining) {
+      printf("Transaction Error : Buffer overflow");
+      exit(1);
+    }
+
+    char_written += tx_written;
+  }
+
   // Hashing
   unsigned char digest[SHA256_DIGEST_LENGTH];
   SHA256((unsigned char *)con_data, strlen(con_data), digest);
@@ -75,14 +112,19 @@ void hash_func(Block *myblock) {
 
 void init_new_block(Block *genesis_block) {
   set_time_stamps(genesis_block);
+
   genesis_block->index = 0;
+  genesis_block->tx_count = 0;
   genesis_block->next_block = NULL; // 0 = NULL
+
   strcpy(genesis_block->prev_hash, "0");
   strcpy(genesis_block->current_hash, "0");
-  strcpy(genesis_block->data, "0");
+
+  memset(genesis_block->transactions, 0, sizeof(genesis_block->transactions));
+  // strcpy(genesis_block->data, "0");
 }
 
-void create_new_block(Block **genesis_block, char data[]) {
+void create_new_block(Block **genesis_block) {
   // we only need the data to be passed as a parameter
   // Block** pass the genensis block by reference since it's local to the main
 
@@ -105,12 +147,10 @@ void create_new_block(Block **genesis_block, char data[]) {
     exit(EXIT_FAILURE);
   }
   init_new_block(new_block); // to avoid garbage values
-  strcpy(new_block->data, data);
   new_block->index = index + 1;
 
   // now link the blocks and fill the "prev hash" field
   strcpy(new_block->prev_hash, temp->current_hash);
-  mine_block(new_block);
   temp->next_block = new_block;
 }
 
@@ -127,7 +167,7 @@ void create_new_block_wrapper(Block **genesis_block) {
       printf("Enter the datj : ");
       char data[MAX_SIZE];
       fgets(data, MAX_SIZE, stdin);
-      create_new_block(genesis_block, data);
+      create_new_block(genesis_block);
       if (!validate_block_chain(genesis_block)) {
         printf("New block invalid !");
         // Add an ASCII spinner
@@ -254,8 +294,23 @@ void spinning_loading_util(char spin_char) {
 }
 void test_invalid_chain(Block *genesis_block) {
   Block *chain = genesis_block;
-  create_new_block(&chain, "A");
-  create_new_block(&chain, "B");
+
+  create_new_block(&chain);
+
+  add_transaction(chain, "Alice", "Bob", 10000);
+  add_transaction(chain, "Alice", "Dave", 250);
+  add_transaction(chain, "Alice", "john", 100);
+
+  mine_latest_block(chain);
+
+  create_new_block(&chain);
+
+  add_transaction(chain, "Rida", "Mortada", 9999);
+  add_transaction(chain, "Rida", "Didine", 125);
+  add_transaction(chain, "Rida", "Connor", 50);
+
+  mine_latest_block(chain);
+
   print_chain(genesis_block);
 
   // Test 1: Corrupt hash
@@ -279,6 +334,7 @@ void free_chain(Block **genesis_block) {
     current = current->next_block;
     free(temp);
   }
+  *genesis_block = NULL;
   printf("Chain freed");
 }
 
@@ -306,9 +362,14 @@ void print_chain(Block *genesis_block) {
     }
 
     printf("Timestamp : %s\n", curr->timestamps);
-    printf("Data      : %s\n", curr->data);
     printf("Prev Hash : %.16s...\n", curr->prev_hash);
     printf("Hash      : %.16s...\n", curr->current_hash);
+
+    printf("Transactions :\n");
+    for (int i = 0; i < curr->tx_count; i++) {
+      printf("%s->%s: %d\n", curr->transactions[i].sender,
+             curr->transactions[i].receiver, curr->transactions[i].amount);
+    }
     printf("------------------------------\n");
 
     // Connection arrow to next block (if not last)
@@ -319,6 +380,7 @@ void print_chain(Block *genesis_block) {
     }
 
     printf("\n");
+    fflush(stdout);
     curr = curr->next_block;
   }
 
@@ -366,4 +428,38 @@ void spinning_loading_minning() {
   fflush(stdout);
 
   i = (i + 1) % 4; // increment and wrap around (0 → 1 → 2 → 3 → 0...)
+}
+
+void add_transaction(Block *block, char *from, char *to, int amount) {
+  if (!block || block->tx_count >= MAX_TX) {
+    fprintf(stderr,
+            "Transaction error : maximum number of transactions reached\n");
+    return;
+  }
+  Transaction *tx = &block->transactions[block->tx_count];
+
+  strncpy(tx->receiver, to,
+          MAX_USERNAME_SIZE -
+              1); // so we don't run into null termination errors
+  tx->receiver[MAX_USERNAME_SIZE - 1] = '\0';
+
+  strncpy(tx->sender, from, MAX_USERNAME_SIZE - 1);
+  tx->receiver[MAX_USERNAME_SIZE - 1] = '\0';
+
+  tx->amount = amount;
+  block->tx_count++;
+}
+
+void mine_latest_block(Block *block) {
+  if (!block) {
+    printf("Block Error : block doesn't exist or is corrupt");
+    return;
+  }
+
+  Block *temp = block; // Actually no need for temp here since the pointer
+                       // stored is just a local copy
+  while (temp->next_block != NULL) {
+    temp = temp->next_block;
+  }
+  mine_block(temp);
 }
