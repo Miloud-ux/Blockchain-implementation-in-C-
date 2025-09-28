@@ -10,7 +10,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#define MINNING_DIFFUCULTY 4
+#define MINNING_DIFFUCULTY 3
 #define MAX_SIZE 1024
 #define MAX_HASH_SIZE 65
 #define MAX_CONCATINATED_SIZE 10000
@@ -297,19 +297,36 @@ void test_invalid_chain(Block *genesis_block) {
 
   create_new_block(&chain);
 
-  add_transaction(chain, "Alice", "Bob", 10000);
-  add_transaction(chain, "Alice", "Dave", 250);
-  add_transaction(chain, "Alice", "john", 100);
+  Block *latest_block = chain;
+  while (latest_block->next_block != NULL) {
+    latest_block = latest_block->next_block;
+  }
+
+  add_transaction(latest_block, "Alice", "Bob", 10000);
+  add_transaction(latest_block, "Alice", "Dave", 250);
+  add_transaction(latest_block, "Alice", "john", 100);
+
+  mine_latest_block(chain);
+
+  create_new_block(&chain);
+  while (latest_block->next_block != NULL) {
+    latest_block = latest_block->next_block;
+  }
+  add_transaction(latest_block, "Rida", "Mortada", 9999);
+  add_transaction(latest_block, "Rida", "Didine", 125);
+  add_transaction(latest_block, "Rida", "Connor", 50);
 
   mine_latest_block(chain);
 
   create_new_block(&chain);
 
-  add_transaction(chain, "Rida", "Mortada", 9999);
-  add_transaction(chain, "Rida", "Didine", 125);
-  add_transaction(chain, "Rida", "Connor", 50);
+  while (latest_block->next_block != NULL) {
+    latest_block = latest_block->next_block;
+  }
 
-  mine_latest_block(chain);
+  add_transaction(latest_block, "jamel", "Mortada", 9999);
+  add_transaction(latest_block, "jamel", "Didine", 125);
+  add_transaction(latest_block, "jamel", "Connor", 50);
 
   print_chain(genesis_block);
 
@@ -352,7 +369,7 @@ void print_chain(Block *genesis_block) {
     // Use your spinning loader
     printf("    Loading block %d ", curr->index);
     spinning_loading();
-    printf(" ✓\n");
+    printf(" ✓ \n");
 
     // Print block info
     if (curr->index == 0) {
@@ -365,10 +382,12 @@ void print_chain(Block *genesis_block) {
     printf("Prev Hash : %.16s...\n", curr->prev_hash);
     printf("Hash      : %.16s...\n", curr->current_hash);
 
-    printf("Transactions :\n");
-    for (int i = 0; i < curr->tx_count; i++) {
-      printf("%s->%s: %d\n", curr->transactions[i].sender,
-             curr->transactions[i].receiver, curr->transactions[i].amount);
+    if (curr->index > 0) {
+      printf("Transactions :\n");
+      for (int i = 0; i < curr->tx_count; i++) {
+        printf("%s->%s: %d\n", curr->transactions[i].sender,
+               curr->transactions[i].receiver, curr->transactions[i].amount);
+      }
     }
     printf("------------------------------\n");
 
@@ -444,7 +463,7 @@ void add_transaction(Block *block, char *from, char *to, int amount) {
   tx->receiver[MAX_USERNAME_SIZE - 1] = '\0';
 
   strncpy(tx->sender, from, MAX_USERNAME_SIZE - 1);
-  tx->receiver[MAX_USERNAME_SIZE - 1] = '\0';
+  tx->sender[MAX_USERNAME_SIZE - 1] = '\0';
 
   tx->amount = amount;
   block->tx_count++;
